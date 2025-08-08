@@ -37,7 +37,7 @@ function LoginPage({ onLogin }) {
   return (
     <div className="login-container">
       <div className="login-form">
-        <h2>Login to UML Generator & Requirement Validator</h2>
+        <h2>UML Generator & Requirement Validator</h2>
         <form onSubmit={handleLogin}>
           <div className="form-group">
             <label htmlFor="username">Username:</label>
