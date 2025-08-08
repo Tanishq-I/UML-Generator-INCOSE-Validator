@@ -1,5 +1,6 @@
 import os
 import json
+import torch
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain.schema import Document
@@ -25,9 +26,19 @@ def setup_incose_vectorstore():
         # Convert chunks to LangChain Document objects
         docs = [Document(page_content=chunk) for chunk in chunks]
         
-        # Initialize HuggingFace Embeddings model
+        # Set PyTorch to avoid meta tensor issues
+        torch.set_default_dtype(torch.float32)
+        
+        # Initialize HuggingFace Embeddings model with device mapping fix
         print("🤖 Initializing embedding model...")
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={
+                'device': 'cpu',
+                'torch_dtype': torch.float32
+            },
+            encode_kwargs={'normalize_embeddings': True}
+        )
         
         # Create and persist Chroma vector DB
         persist_dir = "chroma_db_incose"

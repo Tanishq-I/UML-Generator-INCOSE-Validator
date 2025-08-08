@@ -5,6 +5,7 @@ Validates requirements against INCOSE (International Council on Systems Engineer
 
 import json
 import re
+import torch
 from typing import List, Dict
 from dataclasses import dataclass
 
@@ -30,19 +31,41 @@ class INCOSEValidator:
         # Set up the vector database
         persist_dir = "chroma_db_incose"
         
-        # Initialize HuggingFace embeddings
-        embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        # Set PyTorch environment variables to avoid meta tensor issues
+        import os
+        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
+        os.environ['TOKENIZERS_PARALLELISM'] = 'false'
         
-        # Initialize Chroma vector store
-        self.vectorstore = Chroma(persist_directory=persist_dir, embedding_function=embedding_model)
+        # Set PyTorch to avoid meta tensor issues
+        torch.set_default_dtype(torch.float32)
         
-        # Set up retriever
-        self.retriever = self.vectorstore.as_retriever(
-            search_type="mmr",
-            search_kwargs={"k": 5}  # Get top 5 most relevant chunks
-        )
-        
-        print("✅ INCOSE vector database initialized successfully")
+        try:
+            # Initialize HuggingFace embeddings with device mapping fix
+            embedding_model = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={
+                    'device': 'cpu',
+                    'torch_dtype': torch.float32
+                },
+                encode_kwargs={'normalize_embeddings': True}
+            )
+            
+            # Initialize Chroma vector store
+            self.vectorstore = Chroma(persist_directory=persist_dir, embedding_function=embedding_model)
+            
+            # Set up retriever
+            self.retriever = self.vectorstore.as_retriever(
+                search_type="mmr",
+                search_kwargs={"k": 5}  # Get top 5 most relevant chunks
+            )
+            
+            print("✅ INCOSE vector database initialized successfully")
+            
+        except Exception as e:
+            print(f"❌ Failed to initialize embeddings: {e}")
+            print("⚠️  Falling back to basic validation without vector search")
+            self.vectorstore = None
+            self.retriever = None
 
     def validate_requirement(self, requirement_text: str) -> ValidationResult:
         """
@@ -77,6 +100,10 @@ class INCOSEValidator:
     def _get_relevant_context(self, requirement_text: str) -> str:
         """Get relevant INCOSE context for the requirement"""
         try:
+            # Check if vectorstore is available
+            if not self.retriever:
+                return "INCOSE standards emphasize that requirements should be clear, complete, consistent, verifiable, and traceable. Requirements should be necessary, implementation-free, and attainable."
+            
             # Use the retriever to get relevant documents
             relevant_docs = self.retriever.get_relevant_documents(requirement_text)
             
@@ -90,7 +117,7 @@ class INCOSEValidator:
             
         except Exception as e:
             print(f"Error getting context: {e}")
-            return "Unable to retrieve INCOSE context. Using basic validation criteria."
+            return "INCOSE standards emphasize that requirements should be clear, complete, consistent, verifiable, and traceable. Requirements should be necessary, implementation-free, and attainable."
 
     def _evaluate_with_llm(self, requirement_text: str, context: str) -> ValidationResult:
         """Use the LLM to evaluate the requirement"""

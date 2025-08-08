@@ -1,1 +1,34 @@
+# Node modules
 node_modules
+
+# Environment variables
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+
+# IDE files
+.vscode/settings.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files
+chroma_db_incose/
+*.db
+*.sqlite3
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
